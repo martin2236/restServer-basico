@@ -2,39 +2,50 @@ const {request,response} = require('express');
 const User = require('../models/usuarios');
 const bcrypt = require('bcryptjs');
 
-const userGet = (req = request, res = response)=> {
-    let {q,usuario,apiKey,page = 1,limit = 10} = req.query;
-    console.log(q)
-    res.json({
-        msg:"get API - controlador",
-        q,
-        usuario,
-        apiKey,
-        page,
-        limit
-    })
+const userGet = async (req = request, res = response)=> {
+const{limit = 5, desde = 0} = req.query;
+const query = {estado:true}
+const limiteValido = Number(limit)
+const desdeValido = Number(desde)
+    if(isNaN(limiteValido) || isNaN(desdeValido)){
+        res.status(400).json({
+            msg:"limite y desde deben ser numeros"
+        })
+    }else{
+        const [total, usuarios] = await Promise.all([
+         await User.countDocuments(query),
+         await User.find(query)
+            .skip(Number(desde))
+            .limit(Number(limit))
+        ])
+        res.json({
+            total,
+            usuarios
+        })
+    }
 }
-const userPut = (req, res)=> {
-    let id = req.params.id;
-    res.json({
-        msg:"put API - controller",
-        id
-    })
+const userPut = async(req, res)=> {
+    let {id}= req.params;
+    const {_id,password, google, correo, ...datosAModificar} = req.body
+
+    if(password){
+        const salt = bcrypt.genSaltSync();
+        datosAModificar.password = bcrypt.hashSync(password, salt);
+    }
+
+    const usuario = await User.findByIdAndUpdate(id,datosAModificar);
+    res.json(usuario)
   }
 const userPost = async (req, res)=> {
     const {nombre, correo, password, rol} = req.body;
     const user = new User({nombre, correo,password,rol});
-    
+
     //1- verificar correo
-    const emailYaExiste = await User.findOne({correo})
-    if(emailYaExiste){
-        return res.status(400).json({
-            msg:"el correo ya existe"
-        })
-    }
+    
+
     //2- encriptar password
-    const salt = bcrypt.genSalt();
-    user.password = bcrypt.hash(password, salt);
+    const salt = bcrypt.genSaltSync();
+    user.password = bcrypt.hashSync(password, salt);
     
     //3- guardar en la db
     user.save();
@@ -43,10 +54,10 @@ const userPost = async (req, res)=> {
         user
     })
   }
-const userDelete = (req, res)=> {
-    res.json({
-        msg:"delete API"
-    })
+const userDelete = async (req, res)=> {
+    const {id} = req.params
+    const usuario = await User.findByIdAndUpdate(id,{estado:false})
+    res.json(usuario)
   }
 
 module.exports = {

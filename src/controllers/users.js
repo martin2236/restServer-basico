@@ -55,9 +55,10 @@ const userPost = async (req, res)=> {
     })
   }
 const userDelete = async (req, res)=> {
+    const authUser = req.usuario
     const {id} = req.params
     const usuario = await User.findByIdAndUpdate(id,{estado:false})
-    res.json(usuario)
+    res.json({usuario, authUser})
   }
 
 module.exports = {
